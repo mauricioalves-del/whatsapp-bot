@@ -1,0 +1,14 @@
+{
+  "name": "whatsapp-bot-colaboradores",
+  "version": "1.0.0",
+  "description": "Bot que posta no grupo de WhatsApp de colaboradores quando uma ação de Desconto Colaborador é gerada no Lovable.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "whatsapp-web.js": "^1.26.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
