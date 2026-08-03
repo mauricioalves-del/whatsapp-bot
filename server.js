@@ -1,6 +1,7 @@
 const express = require('express');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
+const QRCode = require('qrcode');
 
 console.log('=== Iniciando server.js ===');
 
@@ -15,27 +16,28 @@ if (!API_TOKEN) {
   process.exit(1);
 }
 
-// Sessão persistida em disco (./session) — evita escanear o QR Code de novo a cada deploy/restart,
-// desde que o volume de disco seja persistente no host escolhido (ver instruções de deploy).
 const client = new Client({
   authStrategy: new LocalAuth({ dataPath: './session' }),
   puppeteer: {
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    // Em container (Dockerfile fornecido), usa o Chromium já instalado no sistema em vez de baixar um novo
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
   },
 });
 
 let clientReady = false;
+let lastQr = null;
 
 client.on('qr', (qr) => {
+  lastQr = qr;
   console.log('\n=== ESCANEIE ESTE QR CODE NO WHATSAPP DO NÚMERO DO BOT ===\n');
+  console.log(`Ou abra no navegador: /qr?token=SEU_TOKEN\n`);
   qrcode.generate(qr, { small: true });
 });
 
 client.on('ready', () => {
   clientReady = true;
+  lastQr = null;
   console.log('Bot conectado ao WhatsApp e pronto para enviar mensagens.');
 });
 
@@ -55,13 +57,28 @@ function checkAuth(req, res, next) {
   next();
 }
 
-// Endpoint de verificação simples, útil para testar antes de plugar no Lovable
 app.get('/status', (req, res) => {
   res.json({ conectado: clientReady });
 });
 
-// Endpoint principal — contrato já combinado no prompt do Lovable:
-// POST /enviar  { "grupo": "Nome do Grupo", "mensagem": "texto..." }
+app.get('/qr', async (req, res) => {
+  if (req.query.token !== API_TOKEN) {
+    return res.status(401).send('Token inválido.');
+  }
+  if (clientReady) {
+    return res.status(200).send('Bot já está conectado — não há QR Code pendente.');
+  }
+  if (!lastQr) {
+    return res.status(404).send('QR Code ainda não gerado. Aguarde alguns segundos e recarregue a página.');
+  }
+  try {
+    const png = await QRCode.toBuffer(lastQr, { type: 'png', width: 400, margin: 2 });
+    res.type('png').send(png);
+  } catch (err) {
+    res.status(500).send('Erro ao gerar imagem do QR Code: ' + String(err.message || err));
+  }
+});
+
 app.post('/enviar', checkAuth, async (req, res) => {
   const { grupo, mensagem } = req.body || {};
 
