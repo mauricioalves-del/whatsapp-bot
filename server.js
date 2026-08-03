@@ -2,6 +2,8 @@ const express = require('express');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 
+console.log('=== Iniciando server.js ===');
+
 const app = express();
 app.use(express.json());
 
@@ -92,6 +94,6 @@ app.post('/enviar', checkAuth, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor do bot rodando na porta ${PORT}`);
 });
